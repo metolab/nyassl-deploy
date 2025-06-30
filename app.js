@@ -62,21 +62,28 @@ for (const name of certNames) {
 }
 
 if (downloadedCerts.length === 0) {
-  logger.info('没有新的或变动的证书，脚本结束')
-  process.exit(0)
+  logger.info('没有新的或变动的证书需要下载')
+} else {
+  logger.info(`准备处理 ${downloadedCerts.length} 个证书`)
 }
 
 // 4. 写文件并拼接 YAML
 let yamlString = ''
-for (const cert of downloadedCerts) {
-  logger.info('Cert name:', { name: cert.name })
-  // 写入 ssl 目录
-  await fs.writeFile(`${sslDir}${cert.name}.crt`, cert.cert)
-  await fs.writeFile(`${sslDir}${cert.name}.key`, cert.key)
-  // 拼接到 traefik 的动态配置里
+for (const name of certNames) {
+  logger.info('Adding cert to YAML:', { name })
+  
+  // 如果是本次下载的证书，需要先写入文件
+  const downloadedCert = downloadedCerts.find(cert => cert.name === name)
+  if (downloadedCert) {
+    // 写入 ssl 目录
+    await fs.writeFile(`${sslDir}${name}.crt`, downloadedCert.cert)
+    await fs.writeFile(`${sslDir}${name}.key`, downloadedCert.key)
+  }
+  
+  // 无论是否本次下载，都添加到 YAML 配置中
   yamlString +=
-    `\n    - certFile: /etc/traefik/ssl/${cert.name}.crt # ${cert.name}\n` +
-    `      keyFile: /etc/traefik/ssl/${cert.name}.key\n`
+    `\n    - certFile: /etc/traefik/ssl/${name}.crt # ${name}\n` +
+    `      keyFile: /etc/traefik/ssl/${name}.key\n`
 }
 
 // 读取并替换 _tls.yaml 中的标记
